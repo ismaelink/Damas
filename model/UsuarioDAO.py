@@ -1,0 +1,59 @@
+import os
+import sqlite3
+
+class UsuarioDAO:
+    def __init__(self):
+        self.__caminho = self.__caminho_banco()
+
+    def __caminho_banco(self):
+        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        return os.path.join(base_dir, 'banco/banco.db')
+
+    def __conectar(self):
+        conn = sqlite3.connect(self.__caminho)
+        conn.execute('PRAGMA foreign_keys = ON;')
+        return conn
+
+    def existe_nome(self, nome):
+        conn = self.__conectar()
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT 1 FROM usuarios WHERE nome = ? LIMIT 1;", (nome,))
+            return cur.fetchone() is not None
+        finally:
+            conn.close()
+
+    def criar(self, nome, senha_hash):
+        conn = self.__conectar()
+        try:
+            cur = conn.cursor()
+            cur.execute("""
+                INSERT INTO usuarios (nome, senha_hash)
+                VALUES (?, ?);
+            """, (nome, senha_hash))
+            conn.commit()
+            return cur.lastrowid
+        finally:
+            conn.close()
+
+    def buscar_por_nome(self, nome):
+        conn = self.__conectar()
+        try:
+            cur = conn.cursor()
+            cur.execute("""
+                SELECT id, nome, senha_hash, tema_preferido
+                FROM usuarios
+                WHERE nome = ?;
+            """, (nome,))
+            row = cur.fetchone()
+            if not row:
+                return None
+            return {
+                'id': row[0],
+                'nome': row[1],
+                'senha_hash': row[2],
+                'tema_preferido': row[3],
+            }
+        finally:
+            conn.close()
+

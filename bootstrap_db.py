@@ -8,10 +8,12 @@ def __caminho_banco():
 SQL_CRIAR_TABELAS = [
     """
     CREATE TABLE IF NOT EXISTS usuarios (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        nome TEXT NOT NULL,
-        email TEXT NOT NULL UNIQUE,
-        data_criacao DATETIME DEFAULT CURRENT_TIMESTAMP
+        id              INTEGER PRIMARY KEY AUTOINCREMENT,
+        nome            TEXT NOT NULL UNIQUE,
+        senha_hash      TEXT NOT NULL,
+        tema_preferido  TEXT NOT NULL DEFAULT 'padrao',
+        criado_em       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        atualizado_em   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
     """
 ]
