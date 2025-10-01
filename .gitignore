@@ -1,0 +1,31 @@
+# Compose env
+.env
+.env.*
+
+# banco
+*.db
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+env/
+.env/
+
+# IDE
+.idea/
+*.swp
+*.swap
+
+# Chaves
+key.pub
+key
+
+# Node JS
+node_modules/
+
+# Logs
+*.log
+*.log*
+
