@@ -91,3 +91,28 @@ class AutenticarController:
     def obter_usuario_atual(self):
         return self.__usuario_atual
 
+    def alterar_dados_usuario(self, novo_nome, nova_senha=None):
+        ok, msg = self.exigir_login()
+        if not ok:
+            return False, msg
+
+        ok, msg = self.__validar_nome(novo_nome)
+        if not ok:
+            return False, msg
+
+        user_id = self.__usuario_atual['id']
+
+        if self.__dao.existe_nome_para_outro(novo_nome.strip(), user_id):
+            return False, "O nome de usuário já existe."
+
+        senha_hash = None
+        if nova_senha is not None and nova_senha.strip() != "":
+            ok, msg = self.__validar_senha(nova_senha)
+            if not ok:
+                return False, msg
+            senha_hash = self.__hash_senha(nova_senha)
+
+        self.__dao.atualizar(user_id, novo_nome.strip(), senha_hash)
+
+        self.__usuario_atual['nome'] = novo_nome.strip()
+        return True, "Os dados foram alterados com sucesso."

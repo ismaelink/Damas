@@ -6,6 +6,8 @@ from controller.AutenticarController import AutenticarController
 from model.UsuarioDAO import UsuarioDAO
 from view.LoginFrame import LoginFrame
 from view.CadastroToplevel import CadastroToplevel
+from view.AlterarDadosToplevel import AlterarDadosToplevel
+
 
 class JanelaPrincipal(tk.Tk):
     def __init__(self):
@@ -117,8 +119,15 @@ class JanelaPrincipal(tk.Tk):
         messagebox.showinfo("OK", "Alterar Tema do Tabuleiro (em breve).", parent=self)
 
     def __acao_alterar_dados(self):
-        if not self.__checar_protecao(): return
-        messagebox.showinfo("OK", "Alterar Dados (em breve).", parent=self)
+        if not self.__checar_protecao():
+            return
+
+        def _refresh():
+            self.__usuario_atual = self.__autenticar.obter_usuario_atual()
+            self.__atualizar_menu_por_estado()
+            self.__mostrar_tela_principal()
+
+        AlterarDadosToplevel(self, autenticar_controller=self.__autenticar, on_sucesso=_refresh)
 
     def __atualizar_menu_por_estado(self):
         logado = self.__usuario_atual is not None

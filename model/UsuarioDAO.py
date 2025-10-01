@@ -23,6 +23,15 @@ class UsuarioDAO:
         finally:
             conn.close()
 
+    def existe_nome_para_outro(self, nome, id_atual):
+        conn = self.__conectar()
+        try:
+            cur = conn.cursor()
+            cur.execute("SELECT 1 FROM usuarios WHERE nome = ? AND id <> ? LIMIT 1;", (nome, id_atual))
+            return cur.fetchone() is not None
+        finally:
+            conn.close()
+
     def criar(self, nome, senha_hash):
         conn = self.__conectar()
         try:
@@ -56,4 +65,35 @@ class UsuarioDAO:
             }
         finally:
             conn.close()
+
+    def atualizar(self, user_id, novo_nome=None, novo_senha_hash=None):
+        partes = []
+        params = []
+
+        if novo_nome is not None:
+            partes.append("nome = ?")
+            params.append(novo_nome)
+
+        if novo_senha_hash is not None:
+            partes.append("senha_hash = ?")
+            params.append(novo_senha_hash)
+
+        # sempre atualiza timestamp
+        partes.append("atualizado_em = CURRENT_TIMESTAMP")
+
+        if not partes:
+            return 0
+
+        sql = "UPDATE usuarios SET " + ", ".join(partes) + " WHERE id = ?;"
+        params.append(user_id)
+
+        conn = self.__conectar()
+        try:
+            cur = conn.cursor()
+            cur.execute(sql, tuple(params))
+            conn.commit()
+            return cur.rowcount
+        finally:
+            conn.close()
+
 
