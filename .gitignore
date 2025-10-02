@@ -22,3 +22,8 @@ key
 *.log
 *.log*
 
+# arquivos de teste
+teste*.py
+
+# ZIP
+*.zip
