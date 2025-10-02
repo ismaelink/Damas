@@ -1,7 +1,3 @@
-# Compose env
-.env
-.env.*
-
 # banco
 *.db
 
@@ -21,9 +17,6 @@ env/
 # Chaves
 key.pub
 key
-
-# Node JS
-node_modules/
 
 # Logs
 *.log
