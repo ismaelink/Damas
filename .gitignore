@@ -4,26 +4,42 @@
 # Python
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+
+# Ambientes virtuais
 .venv/
 venv/
 env/
+ENV/
 .env/
 
-# IDE
+# IDE / Editors
 .idea/
+.vscode/
 *.swp
+*.swo
 *.swap
 
-# Chaves
-key.pub
-key
+# Chaves e credenciais
+*.pem
+*.key
+*.pub
 
 # Logs
 *.log
 *.log*
 
-# arquivos de teste
+# Arquivos temporários/testes
 teste*.py
+*.tmp
+*.bak
 
-# ZIP
+# Arquivos de compactação
 *.zip
+*.tar.gz
+*.rar
+
+# Arquivos de sistema (Windows / Linux / Mac)
+Thumbs.db
+.DS_Store

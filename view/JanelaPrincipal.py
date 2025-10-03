@@ -17,7 +17,7 @@ from view.PartidaFrame import PartidaFrame
 from view.AlterarTemaToplevel import AlterarTemaToplevel
 from view.TabuleiroFrame import TabuleiroFrame
 from view.EstatisticasFrame import EstatisticasFrame
-# (se for usar depois) from view.DificuldadeToplevel import DificuldadeToplevel
+# (opcional) from view.DificuldadeToplevel import DificuldadeToplevel
 
 
 class JanelaPrincipal(tk.Tk):
@@ -33,7 +33,7 @@ class JanelaPrincipal(tk.Tk):
         self.__dao = UsuarioDAO()
         self.__autenticar = AutenticarController(self.__dao)
         self.__partida_controller = PartidaController(self.__autenticar)
-        self.__partidas = PartidaDAO()          # <<< NOVO: para salvar histórico
+        self.__partidas = PartidaDAO()  # histórico de partidas
 
         self.__usuario_atual = None
 
@@ -80,7 +80,7 @@ class JanelaPrincipal(tk.Tk):
                 self.geometry(f'{largura}x{altura}+0+0')
 
     def __limpar_corpo(self):
-        for w in self.frm_corpo.winfo_children():
+        for w in list(self.frm_corpo.winfo_children()):
             w.destroy()
 
     # ===== fluxo login/cadastro =====
@@ -99,12 +99,26 @@ class JanelaPrincipal(tk.Tk):
 
     def __apos_login(self, usuario_atual):
         self.__usuario_atual = usuario_atual
-        # aplica tema salvo do usuário (ou mantém flatly)
+
         tema = (usuario_atual.get('tema_preferido') or 'flatly') if usuario_atual else 'flatly'
+        if tema == 'padrao':
+            tema = 'flatly'
+
         try:
-            self._style.theme_use(tema)
+            # algumas versões não expõem .theme.name; tratamos com try/except
+            atual = self._style.theme.name if hasattr(self._style, "theme") and hasattr(self._style.theme, "name") else None
         except Exception:
-            self._style.theme_use('flatly')
+            atual = None
+
+        if tema != atual:
+            try:
+                self._style.theme_use(tema)
+            except Exception:
+                try:
+                    self._style.theme_use('flatly')
+                except Exception:
+                    pass
+
         self.__atualizar_menu_por_estado()
         self.__mostrar_tela_principal()
 
@@ -162,15 +176,11 @@ class JanelaPrincipal(tk.Tk):
     def __acao_alterar_tema(self):
         if not self.__checar_protecao():
             return
-
-        def _apply(tema):
-            # aplica o tema imediatamente
-            try:
-                self._style.theme_use(tema)
-            except Exception:
-                messagebox.showerror("Erro", f"Não foi possível aplicar o tema '{tema}'.", parent=self)
-
-        AlterarTemaToplevel(self, autenticar_controller=self.__autenticar, on_aplicar=_apply)
+        AlterarTemaToplevel(
+            self,
+            autenticar_controller=self.__autenticar,
+            on_aplicar=self.__aplicar_tema_global
+        )
 
     def __acao_alterar_dados(self):
         if not self.__checar_protecao():
@@ -200,7 +210,7 @@ class JanelaPrincipal(tk.Tk):
         self.__limpar_corpo()
 
         def _salvar_e_voltar(payload):
-            # payload: {"resultado": "vitoria|derrota|encerrada", "movimentos": int, "duracao_segundos": int}
+            # payload: {"resultado": "vitoria|derrota|empate|encerrada", "movimentos": int, "duracao_segundos": int}
             try:
                 u = self.__usuario_atual or {}
                 self.__partidas.registrar(
@@ -214,7 +224,6 @@ class JanelaPrincipal(tk.Tk):
                     duracao_segundos=payload.get("duracao_segundos", 0),
                 )
             except Exception as e:
-                # não quebra o fluxo por erro de gravação
                 messagebox.showwarning("Aviso", f"Não foi possível salvar o histórico: {e}", parent=self)
             finally:
                 self.__mostrar_tela_principal()
@@ -225,3 +234,22 @@ class JanelaPrincipal(tk.Tk):
             on_finalizar=_salvar_e_voltar
         )
         frm.pack(fill='both', expand=True)
+
+    # ===== aplicar/salvar tema de forma centralizada =====
+    def __aplicar_tema_global(self, tema_escolhido):
+        # 'padrao' = usar o tema salvo do usuário (ou flatly)
+        if tema_escolhido == 'padrao':
+            tema_escolhido = (self.__usuario_atual.get('tema_preferido') or 'flatly') if self.__usuario_atual else 'flatly'
+
+        try:
+            self._style.theme_use(tema_escolhido)
+        except Exception:
+            messagebox.showerror("Tema", f"Não foi possível aplicar o tema '{tema_escolhido}'.", parent=self)
+            return
+
+        if self.__usuario_atual:
+            # salva silenciosamente no perfil do usuário
+            try:
+                self.__autenticar.salvar_tema_preferido(tema_escolhido)
+            except Exception:
+                pass
