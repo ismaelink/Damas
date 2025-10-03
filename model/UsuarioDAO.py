@@ -66,34 +66,40 @@ class UsuarioDAO:
         finally:
             conn.close()
 
-    def atualizar(self, user_id, novo_nome=None, novo_senha_hash=None):
-        partes = []
-        params = []
+    # model/UsuarioDAO.py (adicione o parâmetro e a coluna)
+def atualizar(self, user_id, novo_nome=None, novo_senha_hash=None, novo_tema_preferido=None):
+    partes = []
+    params = []
 
-        if novo_nome is not None:
-            partes.append("nome = ?")
-            params.append(novo_nome)
+    if novo_nome is not None:
+        partes.append("nome = ?")
+        params.append(novo_nome)
 
-        if novo_senha_hash is not None:
-            partes.append("senha_hash = ?")
-            params.append(novo_senha_hash)
+    if novo_senha_hash is not None:
+        partes.append("senha_hash = ?")
+        params.append(novo_senha_hash)
 
-        # sempre atualiza timestamp
-        partes.append("atualizado_em = CURRENT_TIMESTAMP")
+    if novo_tema_preferido is not None:
+        partes.append("tema_preferido = ?")
+        params.append(novo_tema_preferido)
 
-        if not partes:
-            return 0
+    # sempre atualiza timestamp
+    partes.append("atualizado_em = CURRENT_TIMESTAMP")
 
-        sql = "UPDATE usuarios SET " + ", ".join(partes) + " WHERE id = ?;"
-        params.append(user_id)
+    if not partes:
+        return 0
 
-        conn = self.__conectar()
-        try:
-            cur = conn.cursor()
-            cur.execute(sql, tuple(params))
-            conn.commit()
-            return cur.rowcount
-        finally:
-            conn.close()
+    sql = "UPDATE usuarios SET " + ", ".join(partes) + " WHERE id = ?;"
+    params.append(user_id)
+
+    conn = self.__conectar()
+    try:
+        cur = conn.cursor()
+        cur.execute(sql, tuple(params))
+        conn.commit()
+        return cur.rowcount
+    finally:
+        conn.close()
+
 
 

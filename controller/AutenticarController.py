@@ -5,6 +5,7 @@ import secrets
 class AutenticarController:
     def __init__(self, usuario_dao):
         self.__dao = usuario_dao
+        self._dao = usuario_dao            # alias para evitar AttributeError em chamadas futuras
         self.__usuario_atual = None
 
     def __gerar_salt(self):
@@ -112,7 +113,28 @@ class AutenticarController:
                 return False, msg
             senha_hash = self.__hash_senha(nova_senha)
 
-        self.__dao.atualizar(user_id, novo_nome.strip(), senha_hash)
+        # >>> use parâmetros nomeados para bater com UsuarioDAO.atualizar
+        self.__dao.atualizar(
+            user_id,
+            novo_nome=novo_nome.strip(),
+            novo_senha_hash=senha_hash
+        )
 
         self.__usuario_atual['nome'] = novo_nome.strip()
         return True, "Os dados foram alterados com sucesso."
+
+    def salvar_tema_preferido(self, tema: str):
+        ok, msg = self.exigir_login()
+        if not ok:
+            return False, msg
+        u = self.obter_usuario_atual()
+
+        # >>> usa o mesmo DAO e parâmetros nomeados
+        linhas = self.__dao.atualizar(
+            u['id'],
+            novo_tema_preferido=tema
+        )
+        if linhas > 0:
+            u['tema_preferido'] = tema
+            return True, "Tema atualizado."
+        return False, "Nenhuma alteração realizada."
