@@ -8,14 +8,14 @@ def _caminho_banco():
 
 def _norm_dif(x):
     s = (x or "").strip().lower()
-    if s in ("easy", "facil", "fácil"):
-        return "easy"
-    if s in ("medium", "medio", "médio"):
-        return "medium"
-    if s in ("hard", "dificil", "difícil"):
-        return "hard"
+    if s in ("Fácil", "facil", "fácil"):
+        return "Fácil"
+    if s in ("Médio", "medio", "médio"):
+        return "Médio"
+    if s in ("Difícil", "dificil", "difícil"):
+        return "Difícil"
     # fallback: guarda como veio, mas ideal é sempre cair nos 3 acima
-    return s or "easy"
+    return s or "Fácil"
 
 class PartidaDAO:
     def __init__(self):
@@ -91,33 +91,41 @@ class PartidaDAO:
 
     # ---------- Agregações p/ EstatísticasFrame ----------
     def agregados(self, usuario_id):
+        """
+        Retorna dict com totais:
+        { 'total': X, 'vitorias': Y, 'derrotas': Z, 'empates': W, 'encerradas': K }
+        """
         conn = self._conn()
         try:
             cur = conn.cursor()
             cur.execute("""
                 SELECT
-                  COUNT(*) AS total,
-                  SUM(CASE WHEN resultado='vitoria'  THEN 1 ELSE 0 END) AS vitorias,
-                  SUM(CASE WHEN resultado='derrota'  THEN 1 ELSE 0 END) AS derrotas,
-                  SUM(CASE WHEN resultado='empate'   THEN 1 ELSE 0 END) AS empates
+                COUNT(*) AS total_todos,
+                SUM(CASE WHEN resultado='vitoria'   THEN 1 ELSE 0 END) AS vitorias,
+                SUM(CASE WHEN resultado='derrota'   THEN 1 ELSE 0 END) AS derrotas,
+                SUM(CASE WHEN resultado='empate'    THEN 1 ELSE 0 END) AS empates,
+                SUM(CASE WHEN resultado='encerrada' THEN 1 ELSE 0 END) AS encerradas
                 FROM partidas
                 WHERE usuario_id = ?;
             """, (usuario_id,))
             row = cur.fetchone()
             if not row:
-                return {'total': 0, 'vitorias': 0, 'derrotas': 0, 'empates': 0}
+                return {'total': 0, 'vitorias': 0, 'derrotas': 0, 'empates': 0, 'encerradas': 0}
+            # Se preferir que "total" seja apenas v+d+e (exclui encerradas), troque a linha abaixo:
+            total = (row[1] or 0) + (row[2] or 0) + (row[3] or 0) + (row[4] or 0)  # inclui encerradas
             return {
-                'total':    row[0] or 0,
+                'total': total,
                 'vitorias': row[1] or 0,
                 'derrotas': row[2] or 0,
-                'empates':  row[3] or 0
+                'empates': row[3] or 0,
+                'encerradas': row[4] or 0
             }
         finally:
             conn.close()
 
     def agregados_por_nivel(self, usuario_id):
         """
-        Retorna sempre nas chaves 'easy'|'medium'|'hard', mesmo que o banco
+        Retorna sempre nas chaves 'Fácil'|'Médio'|'Difícil', mesmo que o banco
         tenha guardado 'facil/medio/dificil' em registros antigos.
         """
         conn = self._conn()
@@ -134,9 +142,9 @@ class PartidaDAO:
             """, (usuario_id,))
 
             base = {
-                'easy':   {'vitorias': 0, 'derrotas': 0, 'empates': 0},
-                'medium': {'vitorias': 0, 'derrotas': 0, 'empates': 0},
-                'hard':   {'vitorias': 0, 'derrotas': 0, 'empates': 0},
+                'Fácil':   {'vitorias': 0, 'derrotas': 0, 'empates': 0},
+                'Médio': {'vitorias': 0, 'derrotas': 0, 'empates': 0},
+                'Difícil':   {'vitorias': 0, 'derrotas': 0, 'empates': 0},
             }
 
             for r in cur.fetchall():

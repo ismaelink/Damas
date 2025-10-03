@@ -23,9 +23,9 @@ class PartidaFrame(tb.Frame):
 
         tb.Label(self, text='Dificuldade IA:').grid(row=1, column=2, sticky=E, padx=(24, 8), pady=6)
 
-        self.var_nivel = tk.StringVar(value='Facil')
+        self.var_nivel = tk.StringVar(value='Fácil')
         cbx_nivel = tb.Combobox(self, textvariable=self.var_nivel, state='readonly',
-                                values=('Facil', 'Medio', 'Dificil'), width=18)
+                                values=('Fácil', 'Médio', 'Difícil'), width=18)
         cbx_nivel.grid(row=1, column=3, sticky=W, pady=6)
 
         # ====== linha 2: quem começa ======
