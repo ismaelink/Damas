@@ -13,41 +13,38 @@ class TabuleiroFrame(tb.Frame):
         self.on_finalizar = on_finalizar or (lambda r: None)
 
         self.game = Game()
-        if partida.quem_comeca == 'pretas':
+        if getattr(partida, 'quem_comeca', 'brancas') == 'pretas':
             self.game.current = 'black'
 
-        self.ai = MinimaxAI(level=partida.dificuldade_ia)
+        self.modo_hh = (getattr(partida, 'adversario', 'IA') == 'Humano')
+        self.ai = None if self.modo_hh else MinimaxAI(level=partida.dificuldade_ia)
+
         self.buttons = {}
         self.base_style = {}
         self.highlight_moves = {}
         self.selected = None
 
-        # contadores / tempo de partida
-        self._turnos = 0               # conta turnos (human+IA)
-        self._t0 = time.time()         # início da partida
-        self._encerrada = False        # trava cliques após o fim
+        self._turnos = 0
+        self._t0 = time.time()
+        self._encerrada = False
 
-        # estilo só para as casas do tabuleiro (não afeta o botão "Encerrar Partida")
         self._style = tb.Style()
-        self.piece_font = ("Segoe UI Emoji", 20, "bold")  # ou "Segoe UI Symbol"/"Noto Color Emoji"
+        self.piece_font = ("Segoe UI Emoji", 20, "bold")
         self._style.configure('Casa.TButton', font=self.piece_font)
 
         self._build_ui()
         self._refresh_board()
         self._status_turno()
 
-        if self.game.current == 'black':
-            # pretas começam -> IA joga de cara
+        if (not self.modo_hh) and self.game.current == 'black':
             self.after(1, self._ai_play)
 
-    # ---------- UI ----------
     def _build_ui(self):
         top = tb.Frame(self); top.pack(anchor='w', pady=(0,8), fill='x')
         self.lbl_status = tb.Label(top, text="", font=("Segoe UI", 12, "bold"))
         self.lbl_status.pack(side=LEFT)
 
-        tb.Button(top, text="Encerrar Partida",
-                  bootstyle=SECONDARY, command=self._encerrar).pack(side=RIGHT, padx=10)
+        tb.Button(top, text="Encerrar Partida", bootstyle=SECONDARY, command=self._encerrar).pack(side=RIGHT, padx=10)
 
         board = tb.Frame(self); board.pack()
 
@@ -79,7 +76,10 @@ class TabuleiroFrame(tb.Frame):
         tb.Label(board, text="").grid(row=9, column=9)
 
     def _status_turno(self, extra=""):
-        msg = "Sua vez (BRANCAS ⛀)." if self.game.current == 'white' else "Vez da IA (PRETAS ⛂)…"
+        if self.modo_hh:
+            msg = "Vez das BRANCAS ⛀." if self.game.current == 'white' else "Vez das PRETAS ⛂."
+        else:
+            msg = "Sua vez (BRANCAS ⛀)." if self.game.current == 'white' else "Vez da IA (PRETAS ⛂)…"
         self.lbl_status.configure(text=(msg + (" " + extra if extra else "")))
 
     def _encerrar(self):
@@ -90,6 +90,7 @@ class TabuleiroFrame(tb.Frame):
             "resultado": "encerrada",
             "movimentos": self._turnos,
             "duracao_segundos": int(time.time() - self._t0),
+            "winner_color": None
         }
         self.on_finalizar(payload)
 
@@ -97,20 +98,24 @@ class TabuleiroFrame(tb.Frame):
         return f"{chr(ord('A')+c)}{r+1}"
 
     def _glyph(self, piece):
-        # homens: ⚪/⚫ — damas: ⛁/⛃
         if piece.color == 'white':
             return '⛁' if piece.king else '⚪'
         else:
             return '⛃' if piece.king else '⚫'
 
-    # ---------- Interação ----------
     def _on_square_click(self, r, c):
         if self._encerrada:
             return
-        if self.game.current != 'white':
-            return
 
-        # destino válido?
+        # quem pode jogar?
+        if self.modo_hh:
+            # humano controla a cor do turno atual
+            pass
+        else:
+            # modo vs IA: humano só joga quando current == white
+            if self.game.current != 'white':
+                return
+
         if (r, c) in self.highlight_moves and self.selected is not None:
             fr, fc = self.selected
             captures = self.highlight_moves[(r, c)]
@@ -119,8 +124,8 @@ class TabuleiroFrame(tb.Frame):
             self.highlight_moves.clear()
             self._refresh_board()
 
-            # se finalizou a jogada do humano (não tem continuidade), conta 1 turno
             if not info['continued']:
+                # finalizou jogada do lado que estava no turno
                 self._turnos += 1
 
             if self._check_game_over():
@@ -130,35 +135,35 @@ class TabuleiroFrame(tb.Frame):
                 self._status_turno("Continue a capturar com a mesma peça.")
                 self._select_square(r, c)
             else:
-                if self.game.current == 'black':
-                    self._status_turno()
-                    self._ai_play()  # IA joga já
-                else:
-                    self._status_turno()
+                self._status_turno()
+                if (not self.modo_hh) and self.game.current == 'black':
+                    self._ai_play()
             return
 
-        # seleção de peça
+        # seleção
         piece = self.game.board.get_piece(r, c)
         if self.game.forced_piece is not None and (r, c) != self.game.forced_piece:
             self._status_turno("Você deve continuar com a mesma peça.")
             return
-        if piece is None or piece.color != 'white':
+        if piece is None:
             return
+        # peça tem que ser da vez atual (em HH ou humano vs IA)
+        if piece.color != self.game.current:
+            return
+
         self._select_square(r, c)
 
     def _ai_play(self):
-        if self._encerrada:
+        if self._encerrada or self.modo_hh:
             return
         seq = self.ai.choose(self.game)
         if not seq:
-            # IA sem movimentos -> vitória das brancas
             self._finalizar_com_vencedor('white')
             return
 
         for fr, fc, tr, tc, caps in seq:
             self.game.move(fr, fc, tr, tc, caps)
 
-        # a IA completou o turno dela
         if self.game.current == 'white':
             self._turnos += 1
 
@@ -171,14 +176,14 @@ class TabuleiroFrame(tb.Frame):
 
         self._status_turno()
         if self.game.current == 'black':
-            # cadeia longa iniciada pela IA
             self.after(60, self._ai_play)
 
     def _select_square(self, r, c):
         self.selected = (r, c)
         self.highlight_moves = self.game.valid_moves_for_piece(r, c)
         self._refresh_board()
-        self._status_turno(f"Selecione destino para {self._coord_label(r,c)}.")
+        lado = "BRANCAS" if self.game.current == 'white' else "PRETAS"
+        self._status_turno(f"Selecione destino ({lado}) para {self._coord_label(r,c)}.")
 
     def _refresh_board(self):
         for (r, c), btn in self.buttons.items():
@@ -193,8 +198,7 @@ class TabuleiroFrame(tb.Frame):
         for (dr, dc) in self.highlight_moves.keys():
             self.buttons[(dr, dc)].configure(bootstyle="info")
 
-    # ---------- Helpers locais de fim de jogo ----------
-    def _count_pieces(self, color: str) -> int:
+    def _count_pieces(self, color):
         n = 0
         for r in range(8):
             for c in range(8):
@@ -203,7 +207,7 @@ class TabuleiroFrame(tb.Frame):
                     n += 1
         return n
 
-    def _has_any_move(self, color: str) -> bool:
+    def _has_any_move(self, color):
         old_current, old_forced = self.game.current, self.game.forced_piece
         self.game.current, self.game.forced_piece = color, None
         ok = False
@@ -219,40 +223,39 @@ class TabuleiroFrame(tb.Frame):
         return ok
 
     def _winner_if_any(self):
-        # sem peças
         if self._count_pieces('white') == 0:
             return 'black'
         if self._count_pieces('black') == 0:
             return 'white'
-        # sem movimentos para quem está de turno -> oponente vence
         if not self._has_any_move(self.game.current):
             return 'white' if self.game.current == 'black' else 'black'
         return None
 
-    # ---------- Fim de jogo ----------
-    def _check_game_over(self) -> bool:
+    def _check_game_over(self):
         winner = self._winner_if_any()
         if not winner:
             return False
         self._finalizar_com_vencedor(winner)
         return True
 
-    def _finalizar_com_vencedor(self, winner: str):
+    def _finalizar_com_vencedor(self, winner):
         if self._encerrada:
             return
         self._encerrada = True
 
-        msg = "Você ganhou!" if winner == 'white' else "Você perdeu."
+        if self.modo_hh:
+            msg = "Brancas venceram!" if winner == 'white' else "Pretas venceram!"
+        else:
+            msg = "Você ganhou!" if winner == 'white' else "Você perdeu."
         messagebox.showinfo("Fim de Jogo", msg, parent=self)
 
-        # desabilita cliques
         for btn in self.buttons.values():
             btn.configure(state=DISABLED)
 
         payload = {
-            "resultado": "vitoria" if winner == 'white' else "derrota",
+            "resultado": "vitoria" if (not self.modo_hh and winner == 'white') else ("derrota" if (not self.modo_hh and winner == 'black') else "encerrada"),
             "movimentos": self._turnos,
             "duracao_segundos": int(time.time() - self._t0),
+            "winner_color": winner  # importante para salvar para 2 usuários
         }
-        # volta para tela principal (ou salva e volta, a JanelaPrincipal cuida disso)
         self.after(150, lambda: self.on_finalizar(payload))

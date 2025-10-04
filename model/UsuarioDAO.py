@@ -1,105 +1,109 @@
-import os
+# model/UsuarioDAO.py
 import sqlite3
+from hashlib import sha256
+from model.bootstrap_db import _caminho_banco
+
 
 class UsuarioDAO:
     def __init__(self):
-        self.__caminho = self.__caminho_banco()
+        self._caminho = _caminho_banco()
 
-    def __caminho_banco(self):
-        base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        return os.path.join(base_dir, 'banco/banco.db')
-
-    def __conectar(self):
-        conn = sqlite3.connect(self.__caminho)
+    def _conn(self):
+        conn = sqlite3.connect(self._caminho)
+        conn.row_factory = sqlite3.Row
         conn.execute('PRAGMA foreign_keys = ON;')
         return conn
 
-    def existe_nome(self, nome):
-        conn = self.__conectar()
+    # ------------ CRUD BÁSICO ------------
+    def obter_por_nome(self, nome):
+        conn = self._conn()
         try:
             cur = conn.cursor()
-            cur.execute("SELECT 1 FROM usuarios WHERE nome = ? LIMIT 1;", (nome,))
-            return cur.fetchone() is not None
+            cur.execute("SELECT * FROM usuarios WHERE nome = ?;", (nome,))
+            r = cur.fetchone()
+            return dict(r) if r else None
         finally:
             conn.close()
 
-    def existe_nome_para_outro(self, nome, id_atual):
-        conn = self.__conectar()
+    def obter_por_id(self, usuario_id):
+        conn = self._conn()
         try:
             cur = conn.cursor()
-            cur.execute("SELECT 1 FROM usuarios WHERE nome = ? AND id <> ? LIMIT 1;", (nome, id_atual))
-            return cur.fetchone() is not None
+            cur.execute("SELECT * FROM usuarios WHERE id = ?;", (usuario_id,))
+            r = cur.fetchone()
+            return dict(r) if r else None
         finally:
             conn.close()
 
-    def criar(self, nome, senha_hash):
-        conn = self.__conectar()
+    def inserir(self, nome, senha_plana):
+        """Cria usuário novo."""
+        senha_hash = sha256(senha_plana.encode('utf-8')).hexdigest()
+        conn = self._conn()
         try:
             cur = conn.cursor()
             cur.execute("""
-                INSERT INTO usuarios (nome, senha_hash)
-                VALUES (?, ?);
+                INSERT INTO usuarios (nome, senha_hash, tema_preferido)
+                VALUES (?, ?, 'padrao');
             """, (nome, senha_hash))
             conn.commit()
             return cur.lastrowid
         finally:
             conn.close()
 
-    def buscar_por_nome(self, nome):
-        conn = self.__conectar()
+    def atualizar(self, usuario_id, nome=None, senha_hash=None):
+        """
+        Atualiza dados do usuário (nome e/ou senha).
+        Retorna (ok, msg).
+        """
+        campos = []
+        params = []
+
+        if nome:
+            campos.append("nome = ?")
+            params.append(nome.strip())
+
+        if senha_hash:
+            campos.append("senha_hash = ?")
+            params.append(senha_hash.strip())
+
+        if not campos:
+            return True, "Nada para atualizar."
+
+        params.append(usuario_id)
+
+        sql = f"""
+            UPDATE usuarios
+               SET {", ".join(campos)},
+                   atualizado_em = CURRENT_TIMESTAMP
+             WHERE id = ?;
+        """
+
+        conn = self._conn()
         try:
             cur = conn.cursor()
-            cur.execute("""
-                SELECT id, nome, senha_hash, tema_preferido
-                FROM usuarios
-                WHERE nome = ?;
-            """, (nome,))
-            row = cur.fetchone()
-            if not row:
-                return None
-            return {
-                'id': row[0],
-                'nome': row[1],
-                'senha_hash': row[2],
-                'tema_preferido': row[3],
-            }
+            cur.execute(sql, tuple(params))
+            conn.commit()
+            if cur.rowcount == 0:
+                return False, "Usuário não encontrado."
+            return True, "Dados atualizados com sucesso."
+        except sqlite3.IntegrityError as e:
+            if "UNIQUE" in str(e).upper():
+                return False, "Já existe um usuário com esse nome."
+            return False, f"Erro de integridade: {e}"
         finally:
             conn.close()
 
-    # model/UsuarioDAO.py (adicione o parâmetro e a coluna)
-def atualizar(self, user_id, novo_nome=None, novo_senha_hash=None, novo_tema_preferido=None):
-    partes = []
-    params = []
-
-    if novo_nome is not None:
-        partes.append("nome = ?")
-        params.append(novo_nome)
-
-    if novo_senha_hash is not None:
-        partes.append("senha_hash = ?")
-        params.append(novo_senha_hash)
-
-    if novo_tema_preferido is not None:
-        partes.append("tema_preferido = ?")
-        params.append(novo_tema_preferido)
-
-    # sempre atualiza timestamp
-    partes.append("atualizado_em = CURRENT_TIMESTAMP")
-
-    if not partes:
-        return 0
-
-    sql = "UPDATE usuarios SET " + ", ".join(partes) + " WHERE id = ?;"
-    params.append(user_id)
-
-    conn = self.__conectar()
-    try:
-        cur = conn.cursor()
-        cur.execute(sql, tuple(params))
-        conn.commit()
-        return cur.rowcount
-    finally:
-        conn.close()
-
-
-
+    def salvar_tema_preferido(self, usuario_id, tema):
+        conn = self._conn()
+        try:
+            cur = conn.cursor()
+            cur.execute("""
+                UPDATE usuarios
+                   SET tema_preferido = ?,
+                       atualizado_em  = CURRENT_TIMESTAMP
+                 WHERE id = ?;
+            """, (tema, usuario_id))
+            conn.commit()
+            return cur.rowcount > 0
+        finally:
+            conn.close()

@@ -6,67 +6,39 @@ class CadastroToplevel(tk.Toplevel):
     def __init__(self, master, autenticar_controller):
         super().__init__(master)
         self.title("Criar Conta")
-        self.transient(master)
-        self.grab_set()
+        self.transient(master); self.grab_set()
         self.resizable(False, False)
-
         self.__autenticar = autenticar_controller
 
-        self.frm_corpo = tb.Frame(self, padding=16)
-        self.frm_corpo.pack(fill='both', expand=True)
+        frm = tb.Frame(self, padding=16); frm.pack(fill='both', expand=True)
+        tb.Label(frm, text='Criar Conta', font=('Helvetica', 16, 'bold'))\
+          .grid(row=0, column=0, columnspan=2, pady=(0, 12))
 
-        self.lbl_titulo = tb.Label(self.frm_corpo, text='Criar Conta', font=('Helvetica', 16, 'bold'))
-        self.lbl_titulo.grid(row=0, column=0, columnspan=2, pady=(0, 12))
+        tb.Label(frm, text='Nome:').grid(row=1, column=0, sticky='e', padx=(0,8), pady=4)
+        self.txte_nome = tb.Entry(frm); self.txte_nome.grid(row=1, column=1, sticky='ew', pady=4)
 
-        self.lbl_nome = tb.Label(self.frm_corpo, text='Nome:')
-        self.lbl_nome.grid(row=1, column=0, sticky='e', padx=(0, 8), pady=4)
+        tb.Label(frm, text='Senha:').grid(row=2, column=0, sticky='e', padx=(0,8), pady=4)
+        self.txte_senha = tb.Entry(frm, show='*'); self.txte_senha.grid(row=2, column=1, sticky='ew', pady=4)
 
-        self.txte_nome = tb.Entry(self.frm_corpo, width=48)
-        self.txte_nome.grid(row=1, column=1, pady=4, sticky='ew')
+        tb.Label(frm, text='Confirmar Senha:').grid(row=3, column=0, sticky='e', padx=(0,8), pady=4)
+        self.txte_confirma = tb.Entry(frm, show='*'); self.txte_confirma.grid(row=3, column=1, sticky='ew', pady=4)
 
-        self.lbl_senha = tb.Label(self.frm_corpo, text='Senha:')
-        self.lbl_senha.grid(row=2, column=0, sticky='e', padx=(0, 8), pady=4)
+        bar = tb.Frame(frm); bar.grid(row=4, column=0, columnspan=2, pady=(12,0), sticky='e')
+        tb.Button(bar, text='Cancelar', bootstyle='secondary', command=self.destroy).pack(side='left', padx=(0,8))
+        tb.Button(bar, text='Cadastrar', bootstyle='success', command=self.__cadastrar).pack(side='left')
 
-        self.txte_senha = tb.Entry(self.frm_corpo, width=48, show='*')
-        self.txte_senha.grid(row=2, column=1, pady=4, sticky='ew')
-
-        self.lbl_confirma = tb.Label(self.frm_corpo, text='Confirmar Senha:')
-        self.lbl_confirma.grid(row=3, column=0, sticky='e', padx=(0, 8), pady=4)
-
-        self.txte_confirma = tb.Entry(self.frm_corpo, width=48, show='*')
-        self.txte_confirma.grid(row=3, column=1, pady=4, sticky='ew')
-
-        self.frm_botoes = tb.Frame(self.frm_corpo)
-        self.frm_botoes.grid(row=4, column=0, columnspan=2, pady=(12, 0), sticky='ew')
-
-        self.btn_sair = tb.Button(self.frm_botoes, text='SAIR', bootstyle='secondary', command=self.__sair)
-        self.btn_sair.pack(side='left', padx=(0, 8))
-
-        self.btn_cadastrar = tb.Button(self.frm_botoes, text='CADASTRAR', command=self.__cadastrar)
-        self.btn_cadastrar.pack(side='left')
-
+        frm.columnconfigure(1, weight=1)
         self.txte_confirma.bind('<Return>', lambda _: self.__cadastrar())
         self.txte_nome.focus_set()
 
     def __cadastrar(self):
         nome = self.txte_nome.get()
         senha = self.txte_senha.get()
-        confirma = self.txte_confirma.get()
-
-        if senha != confirma:
-            messagebox.showerror("Erro", "As senhas não conferem.", parent=self)
-            self.txte_confirma.delete(0, 'end')
-            self.txte_confirma.focus_set()
-            return
-
+        conf  = self.txte_confirma.get()
+        if senha != conf:
+            messagebox.showerror("Erro", "As senhas não conferem.", parent=self); return
         ok, msg = self.__autenticar.registrar_usuario(nome, senha)
         if not ok:
-            messagebox.showerror("Erro", msg, parent=self)
-            return
-
+            messagebox.showerror("Erro", msg, parent=self); return
         messagebox.showinfo("Sucesso", msg, parent=self)
         self.destroy()
-
-    def __sair(self):
-        self.destroy()
-

@@ -17,14 +17,19 @@ from view.PartidaFrame import PartidaFrame
 from view.AlterarTemaToplevel import AlterarTemaToplevel
 from view.TabuleiroFrame import TabuleiroFrame
 from view.EstatisticasFrame import EstatisticasFrame
-# (opcional) from view.DificuldadeToplevel import DificuldadeToplevel
 
 
 class JanelaPrincipal(tk.Tk):
     def __init__(self):
         super().__init__()
-        # guarda o Style para podermos trocar tema depois
         self._style = tb.Style('flatly')
+
+        # Estilo global p/ botões
+        self._style.configure(
+            'App.TButton',
+            font=('Segoe UI', 11, 'bold'),
+            padding=6
+        )
 
         self.title('Jogo de Damas')
         self.__maximizar()
@@ -33,15 +38,14 @@ class JanelaPrincipal(tk.Tk):
         self.__dao = UsuarioDAO()
         self.__autenticar = AutenticarController(self.__dao)
         self.__partida_controller = PartidaController(self.__autenticar)
-        self.__partidas = PartidaDAO()  # histórico de partidas
+        self.__partidas = PartidaDAO()
 
         self.__usuario_atual = None
 
-        # menu
+        # menus
         self.mn_barra = tk.Menu(self)
         self.config(menu=self.mn_barra)
 
-        # menu usuário
         self.mn_usuario = tk.Menu(self.mn_barra, tearoff=0)
         self.mn_usuario.add_command(label='Login', command=self.__mostrar_login)
         self.mn_usuario.add_command(label='Criar Conta', command=self.__abrir_cadastro)
@@ -49,7 +53,6 @@ class JanelaPrincipal(tk.Tk):
         self.mn_usuario.add_command(label='Logout', command=self.__logout)
         self.mn_barra.add_cascade(label='Usuário', menu=self.mn_usuario)
 
-        # menu ações
         self.mn_acoes = tk.Menu(self.mn_barra, tearoff=0)
         self.mn_acoes.add_command(label='Iniciar Partida', command=self.__acao_iniciar_partida)
         self.mn_acoes.add_command(label='Estatísticas/Histórico', command=self.__acao_estatisticas)
@@ -57,11 +60,11 @@ class JanelaPrincipal(tk.Tk):
         self.mn_acoes.add_command(label='Alterar Dados', command=self.__acao_alterar_dados)
         self.mn_barra.add_cascade(label='Ações', menu=self.mn_acoes)
 
-        # corpo
+        # corpo principal
         self.frm_corpo = tb.Frame(self, padding=16)
         self.frm_corpo.pack(fill='both', expand=True)
 
-        # atalho para voltar ao principal (se alguma tela usar)
+        # atalho
         self.bind('<<voltar-principal>>', lambda e: self.__mostrar_tela_principal())
 
         self.__atualizar_menu_por_estado()
@@ -83,7 +86,7 @@ class JanelaPrincipal(tk.Tk):
         for w in list(self.frm_corpo.winfo_children()):
             w.destroy()
 
-    # ===== fluxo login/cadastro =====
+    # ===== login/cadastro =====
     def __mostrar_login(self):
         self.__limpar_corpo()
         self.frm_login = LoginFrame(
@@ -99,13 +102,11 @@ class JanelaPrincipal(tk.Tk):
 
     def __apos_login(self, usuario_atual):
         self.__usuario_atual = usuario_atual
-
         tema = (usuario_atual.get('tema_preferido') or 'flatly') if usuario_atual else 'flatly'
         if tema == 'padrao':
             tema = 'flatly'
 
         try:
-            # algumas versões não expõem .theme.name; tratamos com try/except
             atual = self._style.theme.name if hasattr(self._style, "theme") and hasattr(self._style.theme, "name") else None
         except Exception:
             atual = None
@@ -140,7 +141,7 @@ class JanelaPrincipal(tk.Tk):
             return False
         return True
 
-    # ===== telas principais =====
+    # ===== telas =====
     def __mostrar_tela_principal(self):
         self.__limpar_corpo()
         lbl_titulo = tb.Label(self.frm_corpo, text='Tela Principal', font=('Helvetica', 18, 'bold'))
@@ -149,7 +150,7 @@ class JanelaPrincipal(tk.Tk):
         lbl_bemvindo = tb.Label(self.frm_corpo, text=f'Bem-vindo, {nome}!')
         lbl_bemvindo.pack(anchor='center')
 
-    # ===== ações do menu =====
+    # ===== ações =====
     def __acao_iniciar_partida(self):
         if not self.__checar_protecao():
             return
@@ -157,7 +158,7 @@ class JanelaPrincipal(tk.Tk):
         self.__limpar_corpo()
 
         def _on_iniciar(partida_obj):
-            self.__mostrar_tabuleiro(partida_obj)
+            self._mostrar_tabuleiro(partida_obj)
 
         frm = PartidaFrame(
             self.frm_corpo,
@@ -205,12 +206,11 @@ class JanelaPrincipal(tk.Tk):
             for i in range(end_index + 1):
                 self.mn_acoes.entryconfig(i, state=estado_protegido)
 
-    # ===== tabuleiro com persistência do resultado =====
-    def __mostrar_tabuleiro(self, partida_obj):
+    # ===== tabuleiro =====
+    def _mostrar_tabuleiro(self, partida_obj):  # <- corrigido
         self.__limpar_corpo()
 
         def _salvar_e_voltar(payload):
-            # payload: {"resultado": "vitoria|derrota|empate|encerrada", "movimentos": int, "duracao_segundos": int}
             try:
                 u = self.__usuario_atual or {}
                 self.__partidas.registrar(
@@ -235,9 +235,8 @@ class JanelaPrincipal(tk.Tk):
         )
         frm.pack(fill='both', expand=True)
 
-    # ===== aplicar/salvar tema de forma centralizada =====
+    # ===== tema =====
     def __aplicar_tema_global(self, tema_escolhido):
-        # 'padrao' = usar o tema salvo do usuário (ou flatly)
         if tema_escolhido == 'padrao':
             tema_escolhido = (self.__usuario_atual.get('tema_preferido') or 'flatly') if self.__usuario_atual else 'flatly'
 
@@ -248,7 +247,6 @@ class JanelaPrincipal(tk.Tk):
             return
 
         if self.__usuario_atual:
-            # salva silenciosamente no perfil do usuário
             try:
                 self.__autenticar.salvar_tema_preferido(tema_escolhido)
             except Exception:
